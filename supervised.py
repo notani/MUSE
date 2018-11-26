@@ -17,9 +17,11 @@ from src.trainer import Trainer
 from src.evaluation import Evaluator
 
 
+# If --use_earlystop is specified, select a model based on precision@1 with CLSL on the *test* split by default
+# (We shouldn't select a model based on the performance on the test split)
 VALIDATION_METRIC_SUP = 'precision_at_1-csls_knn_10'
+# VALIDATION_METRIC_SUP = 'precision_at_1-nn'
 VALIDATION_METRIC_UNSUP = 'mean_cosine-csls_knn_10-S2T-10000'
-
 
 # main
 parser = argparse.ArgumentParser(description='Supervised training')
@@ -51,7 +53,9 @@ parser.add_argument("--dico_max_size", type=int, default=0, help="Maximum genera
 parser.add_argument("--src_emb", type=str, default='', help="Reload source embeddings")
 parser.add_argument("--tgt_emb", type=str, default='', help="Reload target embeddings")
 parser.add_argument("--normalize_embeddings", type=str, default="", help="Normalize embeddings before training")
-
+parser.add_argument("--drop_mwe", action="store_true", help="Drop mwes combined with _ from vocabularies")
+parser.add_argument("--use_earlystop", action="store_true", help="Early stop")
+parser.add_argument("--tgt_symboliclink", action="store_true", help="Export a symbolic link to tgt emb")
 
 # parse parameters
 params = parser.parse_args()
@@ -98,15 +102,21 @@ for n_iter in range(params.n_refinement + 1):
 
     # embeddings evaluation
     to_log = OrderedDict({'n_iter': n_iter})
-    evaluator.all_eval(to_log)
+    # evaluator.all_eval(to_log)
+    evaluator.crosslingual_wordsim(to_log)
+    evaluator.word_translation(to_log, use_csls=False)
 
-    # JSON log / save best model / end of epoch
-    logger.info("__log__:%s" % json.dumps(to_log))
-    trainer.save_best(to_log, VALIDATION_METRIC)
+    if params.use_earlystop:
+        # JSON log / save best model / end of epoch
+        trainer.save_best(to_log, VALIDATION_METRIC)
+    # logger.info("__log__:%s" % json.dumps(to_log))
     logger.info('End of iteration %i.\n\n' % n_iter)
 
+if not params.use_earlystop:
+    trainer.save_mapping()
 
 # export embeddings
 if params.export:
-    trainer.reload_best()
-    trainer.export()
+    if params.use_earlystop:
+        trainer.reload_best()
+    trainer.export(symbolic_link=params.tgt_symboliclink)

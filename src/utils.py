@@ -268,6 +268,10 @@ def read_txt_embeddings(params, source, full_vocab):
     word2id = {}
     vectors = []
 
+    # Drop mwes combined with _
+    drop_mwe = params.drop_mwe
+    r_mwe = re.compile(r'[^_]+(_[^_])+')
+
     # load pretrained embeddings
     lang = params.src_lang if source else params.tgt_lang
     emb_path = params.src_emb if source else params.tgt_emb
@@ -280,6 +284,8 @@ def read_txt_embeddings(params, source, full_vocab):
                 assert _emb_dim_file == int(split[1])
             else:
                 word, vect = line.rstrip().split(' ', 1)
+                if drop_mwe and r_mwe.match(word):
+                    continue # skip MWEs
                 if not full_vocab:
                     word = word.lower()
                 vect = np.fromstring(vect, sep=' ')
@@ -424,7 +430,7 @@ def normalize_embeddings(emb, types, mean=None):
     return mean.cpu() if mean is not None else None
 
 
-def export_embeddings(src_emb, tgt_emb, params):
+def export_embeddings(src_emb, tgt_emb, params, tgt_path0=None):
     """
     Export embeddings to a text or a PyTorch file.
     """
@@ -442,6 +448,12 @@ def export_embeddings(src_emb, tgt_emb, params):
                 f.write(u"%s %s\n" % (params.src_dico[i], " ".join('%.5f' % x for x in src_emb[i])))
         # target embeddings
         logger.info('Writing target embeddings to %s ...' % tgt_path)
+        if isinstance(tgt_path0, str):  # symbolic link for tgt embeddings
+            import subprocess
+            cmd = 'ln -s %s %s' % (os.path.abspath(tgt_path0), tgt_path)
+            logger.info(cmd)
+            subprocess.call(cmd, shell=True)
+            return
         with io.open(tgt_path, 'w', encoding='utf-8') as f:
             f.write(u"%i %i\n" % tgt_emb.size())
             for i in range(len(params.tgt_dico)):

@@ -33,7 +33,8 @@ parser.add_argument("--tgt_emb", type=str, default="", help="Reload target embed
 parser.add_argument("--max_vocab", type=int, default=200000, help="Maximum vocabulary size (-1 to disable)")
 parser.add_argument("--emb_dim", type=int, default=300, help="Embedding dimension")
 parser.add_argument("--normalize_embeddings", type=str, default="", help="Normalize embeddings before training")
-
+parser.add_argument("--drop_mwe", action="store_true", help="Drop mwes combined with _ from vocabularies")
+parser.add_argument("--use_earlystop", action="store_true", help="Early stop")
 
 # parse parameters
 params = parser.parse_args()
@@ -56,6 +57,6 @@ evaluator.monolingual_wordsim(to_log)
 # evaluator.monolingual_wordanalogy(to_log)
 if params.tgt_lang:
     evaluator.crosslingual_wordsim(to_log)
-    evaluator.word_translation(to_log)
-    evaluator.sent_translation(to_log)
+    evaluator.word_translation(to_log, use_csls=False)
+    # evaluator.sent_translation(to_log)
     # evaluator.dist_mean_cosine(to_log)

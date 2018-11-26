@@ -222,10 +222,17 @@ class Trainer(object):
             self.best_valid_metric = to_log[metric]
             logger.info('* Best value for "%s": %.5f' % (metric, to_log[metric]))
             # save the mapping
-            W = self.mapping.weight.data.cpu().numpy()
-            path = os.path.join(self.params.exp_path, 'best_mapping.pth')
-            logger.info('* Saving the mapping to %s ...' % path)
-            torch.save(W, path)
+            self.save_mapping(filename='best_mapping.pth')
+
+    def save_mapping(self, filename='mapping.pth'):
+        """
+        Save the best model for the given validation metric.
+        """
+        # save the mapping
+        W = self.mapping.weight.data.cpu().numpy()
+        path = os.path.join(self.params.exp_path, filename)
+        logger.info('* Saving the mapping to %s ...' % path)
+        torch.save(W, path)
 
     def reload_best(self):
         """
@@ -240,7 +247,7 @@ class Trainer(object):
         assert to_reload.size() == W.size()
         W.copy_(to_reload.type_as(W))
 
-    def export(self):
+    def export(self, symbolic_link=False):
         """
         Export embeddings.
         """
@@ -249,11 +256,16 @@ class Trainer(object):
         # load all embeddings
         logger.info("Reloading all embeddings for mapping ...")
         params.src_dico, src_emb = load_embeddings(params, source=True, full_vocab=True)
-        params.tgt_dico, tgt_emb = load_embeddings(params, source=False, full_vocab=True)
-
         # apply same normalization as during training
         normalize_embeddings(src_emb, params.normalize_embeddings, mean=params.src_mean)
-        normalize_embeddings(tgt_emb, params.normalize_embeddings, mean=params.tgt_mean)
+
+        if not symbolic_link or params.normalize_embeddings or params.export != "txt":
+            # Load full vocabulary and normalize embeddings (if specified)
+            params.tgt_dico, tgt_emb = load_embeddings(params, source=False, full_vocab=True)
+            normalize_embeddings(tgt_emb, params.normalize_embeddings, mean=params.tgt_mean)
+        else:
+            # Use a symbolic link to reduce time and disk space usage
+            tgt_emb = None
 
         # map source embeddings to the target space
         bs = 4096
@@ -263,4 +275,5 @@ class Trainer(object):
             src_emb[k:k + bs] = self.mapping(x.cuda() if params.cuda else x).data.cpu()
 
         # write embeddings to the disk
-        export_embeddings(src_emb, tgt_emb, params)
+        tgt_path = params.tgt_emb if symbolic_link else None
+        export_embeddings(src_emb, tgt_emb, params, tgt_path0=tgt_path)
