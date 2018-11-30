@@ -104,7 +104,7 @@ class Evaluator(object):
         to_log['ws_crosslingual_scores'] = ws_crosslingual_scores
         to_log.update({'src_tgt_' + k: v for k, v in src_tgt_ws_scores.items()})
 
-    def word_translation(self, to_log):
+    def word_translation(self, to_log, use_csls=False):
         """
         Evaluation on word translation.
         """
@@ -113,6 +113,8 @@ class Evaluator(object):
         tgt_emb = self.tgt_emb.weight.data
 
         for method in ['nn', 'csls_knn_10']:
+            if method == 'csls_knn_10' and not use_csls:
+                continue
             results = get_word_translation_accuracy(
                 self.src_dico.lang, self.src_dico.word2id, src_emb,
                 self.tgt_dico.lang, self.tgt_dico.word2id, tgt_emb,
