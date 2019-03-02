@@ -259,12 +259,10 @@ class Trainer(object):
         # apply same normalization as during training
         normalize_embeddings(src_emb, params.normalize_embeddings, mean=params.src_mean)
 
-        if not symbolic_link or params.normalize_embeddings or params.export != "txt":
-            # Load full vocabulary and normalize embeddings (if specified)
+        if not symbolic_link and params.export == "txt":
             params.tgt_dico, tgt_emb = load_embeddings(params, source=False, full_vocab=True)
             normalize_embeddings(tgt_emb, params.normalize_embeddings, mean=params.tgt_mean)
         else:
-            # Use a symbolic link to reduce time and disk space usage
             tgt_emb = None
 
         # map source embeddings to the target space

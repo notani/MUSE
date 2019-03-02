@@ -7,6 +7,7 @@
 
 from logging import getLogger
 from copy import deepcopy
+from collections import defaultdict
 import numpy as np
 from torch.autograd import Variable
 from torch import Tensor as torch_tensor
@@ -104,7 +105,7 @@ class Evaluator(object):
         to_log['ws_crosslingual_scores'] = ws_crosslingual_scores
         to_log.update({'src_tgt_' + k: v for k, v in src_tgt_ws_scores.items()})
 
-    def word_translation(self, to_log, use_csls=False):
+    def word_translation(self, to_log, use_csls=False, output_results=True):
         """
         Evaluation on word translation.
         """
@@ -112,6 +113,7 @@ class Evaluator(object):
         src_emb = self.mapping(self.src_emb.weight).data
         tgt_emb = self.tgt_emb.weight.data
 
+        examples = defaultdict(list)
         for method in ['nn', 'csls_knn_10']:
             if method == 'csls_knn_10' and not use_csls:
                 continue
@@ -119,9 +121,16 @@ class Evaluator(object):
                 self.src_dico.lang, self.src_dico.word2id, src_emb,
                 self.tgt_dico.lang, self.tgt_dico.word2id, tgt_emb,
                 method=method,
-                dico_eval=self.params.dico_eval
+                dico_eval=self.params.dico_eval,
+                output_results=output_results
             )
-            to_log.update([('%s-%s' % (k, method), v) for k, v in results])
+            for k in [1, 5, 10]:
+                for key, value in results:
+                    if key == 'precision_at_%i_items' % k:
+                        examples[method].append(value)
+            to_log.update([('%s-%s' % (k, method), v) for k, v in results
+                           if not k.endswith('_items')])
+        return examples
 
     def sent_translation(self, to_log):
         """

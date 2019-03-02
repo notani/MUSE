@@ -5,10 +5,11 @@
 # LICENSE file in the root directory of this source tree.
 #
 
-import os
-import io
+from collections import defaultdict
 from logging import getLogger
+import io
 import numpy as np
+import os
 import torch
 
 from ..utils import get_nn_avg_dist
@@ -80,11 +81,16 @@ def load_dictionary(path, word2id1, word2id2):
     return dico
 
 
-def get_word_translation_accuracy(lang1, word2id1, emb1, lang2, word2id2, emb2, method, dico_eval):
+def get_word_translation_accuracy(lang1, word2id1, emb1, lang2, word2id2, emb2, method, dico_eval,
+                                  output_results=False):
     """
     Given source and target word embeddings, and a dictionary,
     evaluate the translation accuracy using the precision@k.
     """
+    if output_results:  # id -> word
+        id2word1 = {i: w for w, i in word2id1.items()}
+        id2word2 = {i: w for w, i in word2id2.items()}
+
     if dico_eval == 'default':
         path = os.path.join(DIC_EVAL_PATH, '%s-%s.5000-6500.txt' % (lang1, lang2))
     else:
@@ -138,6 +144,7 @@ def get_word_translation_accuracy(lang1, word2id1, emb1, lang2, word2id2, emb2, 
 
     results = []
     top_matches = scores.topk(10, 1, True)[1]
+
     for k in [1, 5, 10]:
         top_k_matches = top_matches[:, :k]
         _matching = (top_k_matches == dico[:, 1][:, None].expand_as(top_k_matches)).sum(1)
@@ -150,5 +157,19 @@ def get_word_translation_accuracy(lang1, word2id1, emb1, lang2, word2id2, emb2, 
         logger.info("%i source words - %s - Precision at k = %i: %f" %
                     (len(matching), method, k, precision_at_k))
         results.append(('precision_at_%i' % k, precision_at_k))
+        # Output results
+
+        if not output_results:
+            continue
+
+        gold, pred = defaultdict(list), {}
+        for i, src_id in enumerate(dico[:, 0].cpu().numpy()):
+            gold[src_id].append(id2word2[int(dico[i, 1].cpu())])
+            pred[src_id] = [id2word2[int(wid)] for wid in top_k_matches[i].cpu()]
+        results.append(('precision_at_%i_items' % k,
+                        [(id2word1[src_id], int(value),
+                          '@@@'.join(sorted(gold[src_id])),
+                          '@@@'.join(pred[src_id]))
+                         for src_id, value in matching.items()]))
 
     return results

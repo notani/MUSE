@@ -57,6 +57,14 @@ evaluator.monolingual_wordsim(to_log)
 # evaluator.monolingual_wordanalogy(to_log)
 if params.tgt_lang:
     evaluator.crosslingual_wordsim(to_log)
-    evaluator.word_translation(to_log, use_csls=False)
+    examples = evaluator.word_translation(to_log, use_csls=False, output_results=True)
+    for method, lists in examples.items():
+        for k, values in zip([1, 5, 10], lists):
+            with open(os.path.join(params.exp_path, '{}_at_{}.tsv'.format(method, k)), 'w') as f:
+                for row in sorted(values, key=lambda t: t[0]):
+                    src_id, word, judge = row[0], row[1], row[2]
+                    preds = row[3:]
+                    f.write('{}\t{}\t{}\t{}\n'.format(src_id, word, judge, '@@@'.join(row[3:])))
+
     # evaluator.sent_translation(to_log)
     # evaluator.dist_mean_cosine(to_log)
