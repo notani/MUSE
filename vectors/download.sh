@@ -2,9 +2,13 @@ echo "WARNING: This script downloads compressed files of ~6 GB and decompress th
 
 for lang in es fr tra
 do
-    for config in baseline mwe_eomw mwe_eomw+parseme
+    for config in baseline mwe_eomw 'mwe_eomw%2Bparseme'
     do
-        dir_output=fasttext_en_${lang}/${config}
+        if [ "${config}" = 'mwe_eomw%2Bparseme' ]; then
+            dir_output=fasttext_en_${lang}/eomw+parseme
+        else
+            dir_output=fasttext_en_${lang}/${config}
+        fi
         cmd="mkdir -p ${dir_output}"
         echo $cmd
         eval $cmd
